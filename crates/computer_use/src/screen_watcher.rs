@@ -8,7 +8,7 @@
 
 use std::time::Duration;
 
-use crate::{Actor, ActionResult, Options, Screenshot, ScreenshotParams};
+use crate::{ActionResult, Actor, Options, Screenshot, ScreenshotParams};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -211,15 +211,21 @@ impl ScreenWatcher {
 /// Capture a screenshot from `actor` and wrap the result in a [`ScreenWatchEvent`].
 async fn capture_screenshot(params: ScreenshotParams, actor: &mut dyn Actor) -> ScreenWatchEvent {
     match actor
-        .perform_actions(&[], Options { screenshot_params: Some(params) })
+        .perform_actions(
+            &[],
+            Options {
+                screenshot_params: Some(params),
+            },
+        )
         .await
     {
-        Ok(ActionResult { screenshot: Some(screenshot), .. }) => {
-            ScreenWatchEvent::Screenshot(screenshot)
-        }
-        Ok(ActionResult { screenshot: None, .. }) => {
-            ScreenWatchEvent::CaptureError("Actor produced no screenshot".to_string())
-        }
+        Ok(ActionResult {
+            screenshot: Some(screenshot),
+            ..
+        }) => ScreenWatchEvent::Screenshot(screenshot),
+        Ok(ActionResult {
+            screenshot: None, ..
+        }) => ScreenWatchEvent::CaptureError("Actor produced no screenshot".to_string()),
         Err(e) => ScreenWatchEvent::CaptureError(e),
     }
 }
@@ -365,7 +371,10 @@ mod tests {
 
         let mut actor = TrackingActor::new(call_count.clone());
         let result = watcher.capture_now(&mut actor).await;
-        assert!(result.is_ok(), "capture_now should succeed even while paused");
+        assert!(
+            result.is_ok(),
+            "capture_now should succeed even while paused"
+        );
         assert_eq!(call_count.load(Ordering::SeqCst), 1);
     }
 

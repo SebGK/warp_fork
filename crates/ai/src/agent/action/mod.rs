@@ -15,12 +15,12 @@ use crate::{
             CreateDocumentsResult, EditDocumentsResult, FetchConversationResult, FileGlobResult,
             FileGlobV2Result, GrepResult, InsertReviewCommentsResult, ReadDocumentsResult,
             ReadFilesResult, ReadMCPResourceResult, ReadShellCommandOutputResult, ReadSkillResult,
-            RequestCommandOutputResult, RequestComputerUseResult, RequestDesktopRecordingResult,
-            RequestFileEditsResult, ReplayDesktopRecordingResult, SearchCodebaseResult,
-            SendMessageToAgentResult, StartAgentResult, StartAgentVersion,
-            StartScreenWatchResult, StopScreenWatchResult, SuggestNewConversationResult,
-            SuggestPromptResult, TransferShellCommandControlToUserResult, UploadArtifactResult,
-            UseComputerResult, WriteToLongRunningShellCommandResult,
+            ReplayDesktopRecordingResult, RequestCommandOutputResult, RequestComputerUseResult,
+            RequestDesktopRecordingResult, RequestFileEditsResult, SearchCodebaseResult,
+            SendMessageToAgentResult, StartAgentResult, StartAgentVersion, StartScreenWatchResult,
+            StopScreenWatchResult, SuggestNewConversationResult, SuggestPromptResult,
+            TransferShellCommandControlToUserResult, UploadArtifactResult, UseComputerResult,
+            WriteToLongRunningShellCommandResult,
         },
         AIAgentCitation, FileLocations,
     },
@@ -389,7 +389,10 @@ impl AIAgentActionType {
             }
             Self::RequestDesktopRecording(_) => "Request desktop recording".to_string(),
             Self::ReplayDesktopRecording(req) => {
-                format!("Replay desktop recording ({} steps)", req.recording.step_count())
+                format!(
+                    "Replay desktop recording ({} steps)",
+                    req.recording.step_count()
+                )
             }
             Self::StartScreenWatch(_) => "Start screen watch".to_string(),
             Self::StopScreenWatch => "Stop screen watch".to_string(),
@@ -566,11 +569,7 @@ impl Display for AIAgentActionType {
                 write!(f, "AskUserQuestion: {} question(s)", questions.len())
             }
             AIAgentActionType::RequestDesktopRecording(req) => {
-                write!(
-                    f,
-                    "RequestDesktopRecording: {}",
-                    req.task_description
-                )
+                write!(f, "RequestDesktopRecording: {}", req.task_description)
             }
             AIAgentActionType::ReplayDesktopRecording(req) => {
                 write!(

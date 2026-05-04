@@ -261,4 +261,6 @@ impl From<Vector2IDef> for Vector2I {
 pub use recording::{
     AutomationLoop, AutomationLoopResult, RecordedStep, RecordingSession, StepDecision,
 };
-pub use screen_watcher::{ScreenWatchCommand, ScreenWatchEvent, ScreenWatcher, ScreenWatcherConfig};
+pub use screen_watcher::{
+    ScreenWatchCommand, ScreenWatchEvent, ScreenWatcher, ScreenWatcherConfig,
+};

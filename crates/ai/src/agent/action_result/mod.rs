@@ -1459,7 +1459,9 @@ pub enum ReplayDesktopRecordingResult {
 impl Display for ReplayDesktopRecordingResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Completed { steps_completed, .. } => {
+            Self::Completed {
+                steps_completed, ..
+            } => {
                 write!(f, "Desktop replay completed ({steps_completed} step(s))")
             }
             Self::StoppedEarly {
@@ -1534,7 +1536,10 @@ impl Display for StopScreenWatchResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Stopped { messages_sent } => {
-                write!(f, "Screen-watch session stopped ({messages_sent} message(s) sent)")
+                write!(
+                    f,
+                    "Screen-watch session stopped ({messages_sent} message(s) sent)"
+                )
             }
             Self::NoActiveSession => write!(f, "No active screen-watch session to stop"),
             Self::Cancelled => write!(f, "Screen-watch stop cancelled"),
