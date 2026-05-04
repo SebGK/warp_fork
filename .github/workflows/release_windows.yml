@@ -72,11 +72,26 @@ jobs:
         env:
           BINSTALL_VERSION: 1.14.4
 
-      # Install build-time Cargo dependencies (e.g. diesel_cli is skipped in CI).
-      - name: Install Cargo build dependencies
+      # Install protoc so that prost-build can compile the protobuf APIs.
+      - name: Install protoc
+        id: install_protoc
+        uses: ConorMacBride/install-package@3e7ad059e07782ee54fa35f827df52aae0626f30 # v1
+        continue-on-error: true
+        with:
+          choco: protoc
+
+      - name: Install protoc via winget (fallback)
+        if: ${{ steps.install_protoc.outcome == 'failure' }}
+        shell: pwsh
+        run: winget install Google.Protobuf
+
+      # Install build-time and release Cargo dependencies.
+      # install_cargo_release_deps installs build deps + cargo-about (needed by
+      # prepare_bundled_resources.ps1 to generate THIRD_PARTY_LICENSES.txt).
+      - name: Install Cargo release dependencies
         shell: bash
         run: |
-          ./script/install_cargo_build_deps || true
+          ./script/install_cargo_release_deps
 
       # Build the Warp binary (skips the installer step).
       - name: Build Warp binary
