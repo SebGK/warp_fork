@@ -166,7 +166,12 @@ impl<'a> AutomationLoop<'a> {
             let pre_screenshot = if let Some(params) = self.screenshot_params {
                 let result = self
                     .actor
-                    .perform_actions(&[], Options { screenshot_params: Some(params) })
+                    .perform_actions(
+                        &[],
+                        Options {
+                            screenshot_params: Some(params),
+                        },
+                    )
                     .await
                     .map_err(|e| e.to_string())?;
                 result.screenshot
@@ -208,7 +213,12 @@ impl<'a> AutomationLoop<'a> {
         let final_screenshot = if let Some(params) = self.screenshot_params {
             let result = self
                 .actor
-                .perform_actions(&[], Options { screenshot_params: Some(params) })
+                .perform_actions(
+                    &[],
+                    Options {
+                        screenshot_params: Some(params),
+                    },
+                )
                 .await
                 .map_err(|e| e.to_string())?;
             result.screenshot

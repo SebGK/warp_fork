@@ -15,10 +15,10 @@ use crate::{
             CreateDocumentsResult, EditDocumentsResult, FetchConversationResult, FileGlobResult,
             FileGlobV2Result, GrepResult, InsertReviewCommentsResult, ReadDocumentsResult,
             ReadFilesResult, ReadMCPResourceResult, ReadShellCommandOutputResult, ReadSkillResult,
-            RequestCommandOutputResult, RequestComputerUseResult, RequestDesktopRecordingResult,
-            RequestFileEditsResult, ReplayDesktopRecordingResult, SearchCodebaseResult,
-            SendMessageToAgentResult, StartAgentResult, StartAgentVersion,
-            SuggestNewConversationResult, SuggestPromptResult,
+            ReplayDesktopRecordingResult, RequestCommandOutputResult, RequestComputerUseResult,
+            RequestDesktopRecordingResult, RequestFileEditsResult, SearchCodebaseResult,
+            SendMessageToAgentResult, StartAgentResult, StartAgentVersion, StartScreenWatchResult,
+            StopScreenWatchResult, SuggestNewConversationResult, SuggestPromptResult,
             TransferShellCommandControlToUserResult, UploadArtifactResult, UseComputerResult,
             WriteToLongRunningShellCommandResult,
         },
@@ -174,6 +174,12 @@ pub enum AIAgentActionType {
 
     /// AI requests replay of a previously-recorded desktop session on the live desktop.
     ReplayDesktopRecording(ReplayDesktopRecordingRequest),
+
+    /// AI requests starting a continuous screen-watching session with a floating chat popup.
+    StartScreenWatch(StartScreenWatchRequest),
+
+    /// AI requests stopping the active screen-watching session.
+    StopScreenWatch,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -330,6 +336,12 @@ impl AIAgentActionType {
             Self::ReplayDesktopRecording(_) => AIAgentActionResultType::ReplayDesktopRecording(
                 ReplayDesktopRecordingResult::Cancelled,
             ),
+            Self::StartScreenWatch(_) => {
+                AIAgentActionResultType::StartScreenWatch(StartScreenWatchResult::Cancelled)
+            }
+            Self::StopScreenWatch => {
+                AIAgentActionResultType::StopScreenWatch(StopScreenWatchResult::Cancelled)
+            }
         }
     }
 
@@ -377,8 +389,13 @@ impl AIAgentActionType {
             }
             Self::RequestDesktopRecording(_) => "Request desktop recording".to_string(),
             Self::ReplayDesktopRecording(req) => {
-                format!("Replay desktop recording ({} steps)", req.recording.step_count())
+                format!(
+                    "Replay desktop recording ({} steps)",
+                    req.recording.step_count()
+                )
             }
+            Self::StartScreenWatch(_) => "Start screen watch".to_string(),
+            Self::StopScreenWatch => "Stop screen watch".to_string(),
         }
     }
 }
@@ -552,11 +569,7 @@ impl Display for AIAgentActionType {
                 write!(f, "AskUserQuestion: {} question(s)", questions.len())
             }
             AIAgentActionType::RequestDesktopRecording(req) => {
-                write!(
-                    f,
-                    "RequestDesktopRecording: {}",
-                    req.task_description
-                )
+                write!(f, "RequestDesktopRecording: {}", req.task_description)
             }
             AIAgentActionType::ReplayDesktopRecording(req) => {
                 write!(
@@ -564,6 +577,12 @@ impl Display for AIAgentActionType {
                     "ReplayDesktopRecording: {} step(s)",
                     req.recording.step_count()
                 )
+            }
+            AIAgentActionType::StartScreenWatch(req) => {
+                write!(f, "StartScreenWatch: interval={}s", req.interval_secs)
+            }
+            AIAgentActionType::StopScreenWatch => {
+                write!(f, "StopScreenWatch")
             }
         }
     }
@@ -730,6 +749,21 @@ pub struct ReplayDesktopRecordingRequest {
     /// If `true`, the client must request user confirmation before executing
     /// any action the agent or system marks as risky.
     pub require_confirmation_for_risky_actions: bool,
+}
+
+/// Request to start a continuous screen-watching session.
+///
+/// When handled, the client starts capturing periodic screenshots and shows a
+/// floating chat popup where the AI model and the user can exchange messages.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct StartScreenWatchRequest {
+    /// Suggested capture interval in seconds. Clamped to 2–60 by the client.
+    pub interval_secs: u64,
+    /// Screenshot constraints (resolution caps, region).
+    /// Pass `None` to use platform defaults.
+    pub screenshot_params: Option<computer_use::ScreenshotParams>,
+    /// Optional opening message displayed in the chat popup when the session starts.
+    pub opening_message: Option<String>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
