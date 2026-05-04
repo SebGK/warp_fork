@@ -95,6 +95,12 @@ pub enum AIAgentActionResultType {
     TransferShellCommandControlToUser(TransferShellCommandControlToUserResult),
     /// The result of asking the user a question.
     AskUserQuestion(AskUserQuestionResult),
+
+    /// The result of requesting a desktop recording from the user.
+    RequestDesktopRecording(RequestDesktopRecordingResult),
+
+    /// The result of replaying a desktop recording on the live desktop.
+    ReplayDesktopRecording(ReplayDesktopRecordingResult),
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -161,6 +167,8 @@ impl Display for AIAgentActionResultType {
             AIAgentActionResultType::SendMessageToAgent(result) => result.fmt(f),
             AIAgentActionResultType::TransferShellCommandControlToUser(result) => result.fmt(f),
             AIAgentActionResultType::AskUserQuestion(result) => result.fmt(f),
+            AIAgentActionResultType::RequestDesktopRecording(result) => result.fmt(f),
+            AIAgentActionResultType::ReplayDesktopRecording(result) => result.fmt(f),
             AIAgentActionResultType::OpenCodeReview | AIAgentActionResultType::InitProject => {
                 Ok(())
             }
@@ -753,6 +761,12 @@ impl AIAgentActionResultType {
             AIAgentActionResultType::AskUserQuestion(_) => {
                 "The user's answers to clarifying questions"
             }
+            AIAgentActionResultType::RequestDesktopRecording(_) => {
+                "The result of the desktop recording session"
+            }
+            AIAgentActionResultType::ReplayDesktopRecording(_) => {
+                "The result of replaying the desktop recording"
+            }
         }
     }
 
@@ -790,6 +804,8 @@ impl AIAgentActionResultType {
                 | TransferShellCommandControlToUserResult::CommandFinished { .. },
             ) => true,
             Self::AskUserQuestion(AskUserQuestionResult::Success { .. }) => true,
+            Self::RequestDesktopRecording(RequestDesktopRecordingResult::Success { .. }) => true,
+            Self::ReplayDesktopRecording(ReplayDesktopRecordingResult::Completed { .. }) => true,
             _ => false,
         }
     }
@@ -818,6 +834,11 @@ impl AIAgentActionResultType {
             | Self::AskUserQuestion(AskUserQuestionResult::Error(_))
             | Self::TransferShellCommandControlToUser(
                 TransferShellCommandControlToUserResult::Error(_),
+            )
+            | Self::RequestDesktopRecording(RequestDesktopRecordingResult::Error(_))
+            | Self::ReplayDesktopRecording(
+                ReplayDesktopRecordingResult::Error { .. }
+                | ReplayDesktopRecordingResult::StoppedEarly { .. },
             ) => true,
             _ => false,
         }
@@ -860,7 +881,9 @@ impl AIAgentActionResultType {
             | Self::StartAgent(StartAgentResult::Cancelled { .. })
             | Self::SendMessageToAgent(SendMessageToAgentResult::Cancelled)
             // SkippedByAutoApprove is intentionally excluded: the agent should continue.
-            | Self::AskUserQuestion(AskUserQuestionResult::Cancelled) => true,
+            | Self::AskUserQuestion(AskUserQuestionResult::Cancelled)
+            | Self::RequestDesktopRecording(RequestDesktopRecordingResult::Cancelled)
+            | Self::ReplayDesktopRecording(ReplayDesktopRecordingResult::Cancelled) => true,
             _ => false,
         }
     }
@@ -1352,6 +1375,84 @@ impl Display for AskUserQuestionResult {
                     question_ids.len()
                 )
             }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Desktop recording and replay results
+// ---------------------------------------------------------------------------
+
+/// Result of requesting a desktop recording from the user.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RequestDesktopRecordingResult {
+    /// The user completed the recording.
+    Success {
+        recording: computer_use::RecordingSession,
+    },
+    /// The user or system cancelled the recording before any steps were captured.
+    Cancelled,
+    /// An error prevented the recording from starting or completing.
+    Error(String),
+}
+
+impl Display for RequestDesktopRecordingResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Success { recording } => write!(
+                f,
+                "Desktop recording completed ({} step(s))",
+                recording.step_count()
+            ),
+            Self::Cancelled => write!(f, "Desktop recording cancelled"),
+            Self::Error(msg) => write!(f, "Desktop recording error: {msg}"),
+        }
+    }
+}
+
+/// Result of replaying a desktop recording on the live desktop.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ReplayDesktopRecordingResult {
+    /// All steps completed successfully.
+    Completed {
+        steps_completed: usize,
+        final_screenshot: Option<computer_use::Screenshot>,
+    },
+    /// Replay stopped before all steps because the user cancelled an individual action.
+    StoppedEarly {
+        reason: String,
+        steps_completed: usize,
+    },
+    /// The entire replay was cancelled (e.g. agent conversation ended).
+    Cancelled,
+    /// An error occurred while executing the action at `steps_completed`.
+    Error {
+        message: String,
+        steps_completed: usize,
+    },
+}
+
+impl Display for ReplayDesktopRecordingResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Completed { steps_completed, .. } => {
+                write!(f, "Desktop replay completed ({steps_completed} step(s))")
+            }
+            Self::StoppedEarly {
+                reason,
+                steps_completed,
+            } => write!(
+                f,
+                "Desktop replay stopped early after {steps_completed} step(s): {reason}"
+            ),
+            Self::Cancelled => write!(f, "Desktop replay cancelled"),
+            Self::Error {
+                message,
+                steps_completed,
+            } => write!(
+                f,
+                "Desktop replay error at step {steps_completed}: {message}"
+            ),
         }
     }
 }

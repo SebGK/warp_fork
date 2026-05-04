@@ -4,6 +4,7 @@
 #[cfg(not(noop))]
 mod imp;
 mod noop;
+pub mod recording;
 #[cfg(any(macos, linux, windows))]
 mod screenshot_utils;
 
@@ -255,3 +256,7 @@ impl From<Vector2IDef> for Vector2I {
         Vector2I::new(def.x, def.y)
     }
 }
+
+pub use recording::{
+    AutomationLoop, AutomationLoopResult, RecordedStep, RecordingSession, StepDecision,
+};

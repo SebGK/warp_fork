@@ -15,8 +15,9 @@ use crate::{
             CreateDocumentsResult, EditDocumentsResult, FetchConversationResult, FileGlobResult,
             FileGlobV2Result, GrepResult, InsertReviewCommentsResult, ReadDocumentsResult,
             ReadFilesResult, ReadMCPResourceResult, ReadShellCommandOutputResult, ReadSkillResult,
-            RequestCommandOutputResult, RequestComputerUseResult, RequestFileEditsResult,
-            SearchCodebaseResult, SendMessageToAgentResult, StartAgentResult, StartAgentVersion,
+            RequestCommandOutputResult, RequestComputerUseResult, RequestDesktopRecordingResult,
+            RequestFileEditsResult, ReplayDesktopRecordingResult, SearchCodebaseResult,
+            SendMessageToAgentResult, StartAgentResult, StartAgentVersion,
             SuggestNewConversationResult, SuggestPromptResult,
             TransferShellCommandControlToUserResult, UploadArtifactResult, UseComputerResult,
             WriteToLongRunningShellCommandResult,
@@ -167,6 +168,12 @@ pub enum AIAgentActionType {
     AskUserQuestion {
         questions: Vec<AskUserQuestionItem>,
     },
+
+    /// AI requests the user to record a desktop demonstration that can later be replayed.
+    RequestDesktopRecording(RequestDesktopRecordingRequest),
+
+    /// AI requests replay of a previously-recorded desktop session on the live desktop.
+    ReplayDesktopRecording(ReplayDesktopRecordingRequest),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -317,6 +324,12 @@ impl AIAgentActionType {
             Self::AskUserQuestion { .. } => {
                 AIAgentActionResultType::AskUserQuestion(AskUserQuestionResult::Cancelled)
             }
+            Self::RequestDesktopRecording(_) => AIAgentActionResultType::RequestDesktopRecording(
+                RequestDesktopRecordingResult::Cancelled,
+            ),
+            Self::ReplayDesktopRecording(_) => AIAgentActionResultType::ReplayDesktopRecording(
+                ReplayDesktopRecordingResult::Cancelled,
+            ),
         }
     }
 
@@ -361,6 +374,10 @@ impl AIAgentActionType {
             }
             Self::AskUserQuestion { questions } => {
                 format!("Ask user {} question(s)", questions.len())
+            }
+            Self::RequestDesktopRecording(_) => "Request desktop recording".to_string(),
+            Self::ReplayDesktopRecording(req) => {
+                format!("Replay desktop recording ({} steps)", req.recording.step_count())
             }
         }
     }
@@ -534,6 +551,20 @@ impl Display for AIAgentActionType {
             AIAgentActionType::AskUserQuestion { questions } => {
                 write!(f, "AskUserQuestion: {} question(s)", questions.len())
             }
+            AIAgentActionType::RequestDesktopRecording(req) => {
+                write!(
+                    f,
+                    "RequestDesktopRecording: {}",
+                    req.task_description
+                )
+            }
+            AIAgentActionType::ReplayDesktopRecording(req) => {
+                write!(
+                    f,
+                    "ReplayDesktopRecording: {} step(s)",
+                    req.recording.step_count()
+                )
+            }
         }
     }
 }
@@ -676,6 +707,29 @@ pub struct RequestComputerUseRequest {
     pub task_summary: String,
     /// If set, a screenshot will be captured after the actions are executed.
     pub screenshot_params: Option<computer_use::ScreenshotParams>,
+}
+
+/// Request for the user to record a desktop demonstration.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct RequestDesktopRecordingRequest {
+    /// Human-readable description of the task the user should demonstrate.
+    pub task_description: String,
+    /// Screenshot parameters to use when capturing before-screenshots during recording.
+    /// Pass `None` to skip screenshots during recording (actions only).
+    pub screenshot_params: Option<computer_use::ScreenshotParams>,
+}
+
+/// Request to replay a previously-recorded desktop session.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ReplayDesktopRecordingRequest {
+    /// The recorded session to replay on the live desktop.
+    pub recording: computer_use::RecordingSession,
+    /// Screenshot parameters for pre-step verification screenshots.
+    /// Pass `None` to skip screenshots during replay.
+    pub screenshot_params: Option<computer_use::ScreenshotParams>,
+    /// If `true`, the client must request user confirmation before executing
+    /// any action the agent or system marks as risky.
+    pub require_confirmation_for_risky_actions: bool,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
