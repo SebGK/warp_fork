@@ -31,6 +31,8 @@ pub struct RecordedStep {
 
 A single step in a recording. `before_screenshot` is taken immediately before the action is performed and may be `None` when screenshots are disabled (e.g. in tests). `Action` is the existing type from `lib.rs`.
 
+`RecordedStep` derives `Debug`, `Clone`, `PartialEq`, `Eq`. Because `Screenshot` contains only `Vec<u8>` (which implements `Eq` by value) and a `Cow<'static, str>`, and `Screenshot` itself derives `Eq`, the derived `Eq` is reflexive and correct.
+
 #### `RecordingSession`
 
 ```rust
@@ -50,9 +52,7 @@ Collects steps during an active recording. Key methods:
 - `is_empty(&self) -> bool` – true when no steps were recorded.
 - `step_count(&self) -> usize` – number of steps.
 
-`RecordingSession` derives `Debug`, `Clone`, `PartialEq`. Screenshots are not `Eq` (they contain `Vec<u8>` that is always compared by value, which is already derived), so `RecordingSession` is `PartialEq` but not `Eq`.
-
-Serialization (`serde::Serialize`/`Deserialize`) is derived on `RecordedStep` and `RecordingSession` for storage. `Screenshot` already derives neither `Serialize` nor `Deserialize` in the current codebase; a `SerializableScreenshot` newtype (or a dedicated serialization module using `serde_with`) is used internally if persistence is needed. For the first iteration, `RecordingSession` is only serialized when callers opt in via a feature flag; the default representation is in-memory only.
+`RecordingSession` derives `Debug`, `Clone`, `PartialEq`, `Eq`. Both are correct because `Vec<RecordedStep>` and `Option<Screenshot>` implement `Eq`.
 
 #### `AutomationLoop`
 
