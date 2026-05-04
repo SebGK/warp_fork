@@ -85,11 +85,13 @@ jobs:
         shell: pwsh
         run: winget install Google.Protobuf
 
-      # Install build-time Cargo dependencies (e.g. diesel_cli is skipped in CI).
-      - name: Install Cargo build dependencies
+      # Install build-time and release Cargo dependencies.
+      # install_cargo_release_deps installs build deps + cargo-about (needed by
+      # prepare_bundled_resources.ps1 to generate THIRD_PARTY_LICENSES.txt).
+      - name: Install Cargo release dependencies
         shell: bash
         run: |
-          ./script/install_cargo_build_deps || true
+          ./script/install_cargo_release_deps
 
       # Build the Warp binary (skips the installer step).
       - name: Build Warp binary
