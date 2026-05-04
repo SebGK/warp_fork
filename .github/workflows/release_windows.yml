@@ -1,0 +1,112 @@
+# Build a Windows x64 installer and publish it as a GitHub Release.
+#
+# This workflow is intended for the SebGK/warp_fork repository.  It does NOT
+# require the proprietary infrastructure secrets used by the upstream
+# warpdotdev/warp-internal workflow (Azure code signing, Sentry, GCS).
+#
+# Trigger it manually from the Actions tab:
+#   - version_tag  : the tag to create and attach to the release (e.g. v0.2025.05.04)
+#   - channel      : dev | preview | stable  (controls the app-name / cargo profile)
+#   - release_name : a human-readable name that appears in the GitHub Release title
+
+name: Windows Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: "Release tag (e.g. v0.2025.05.04.01)"
+        required: true
+        type: string
+      channel:
+        description: "Release channel"
+        required: true
+        type: choice
+        default: dev
+        options:
+          - dev
+          - preview
+          - stable
+      release_name:
+        description: "GitHub Release title (leave blank to use the tag)"
+        required: false
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build_windows:
+    name: Build Windows x64 installer
+    runs-on: windows-latest
+    timeout-minutes: 150
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Enable long paths so Cargo doesn't hit MAX_PATH on Windows.
+      - name: Enable long paths
+        shell: bash
+        run: git config --system core.longpaths true
+
+      # Use a short, stable path for CARGO_HOME to avoid long-path issues.
+      - name: Set CARGO_HOME
+        shell: bash
+        run: echo "CARGO_HOME=C:\cargo" >> $GITHUB_ENV
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      # Cache compiled dependencies to speed up subsequent runs.
+      - name: Rust cache
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          key: windows-x64-${{ inputs.channel }}
+
+      # cargo-binstall is used by install_cargo_build_deps to fetch pre-built binaries.
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@dc19f1e48450eefe5a29b8da6c6b00a87d730b37 # v1.18.1
+        env:
+          BINSTALL_VERSION: 1.14.4
+
+      # Install build-time Cargo dependencies (e.g. diesel_cli is skipped in CI).
+      - name: Install Cargo build dependencies
+        shell: bash
+        run: |
+          ./script/install_cargo_build_deps || true
+
+      # Build the Warp binary (skips the installer step).
+      - name: Build Warp binary
+        id: build_binary
+        shell: bash
+        run: script/bundle --Channel ${{ inputs.channel }} --skip_build_installer --arch x64
+        env:
+          GIT_RELEASE_TAG: ${{ inputs.version_tag }}
+
+      # Inno Setup (ISCC) is pre-installed on GitHub Windows runners.
+      # Build the installer from the binary produced above (skips recompilation).
+      - name: Build Windows installer (unsigned)
+        id: bundle_app
+        shell: bash
+        run: script/bundle --Channel ${{ inputs.channel }} --skip_build_binary --arch x64
+        env:
+          GIT_RELEASE_TAG: ${{ inputs.version_tag }}
+
+      # Create the GitHub Release and upload the installer as an asset.
+      - name: Create GitHub Release and upload installer
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+        with:
+          tag_name: ${{ inputs.version_tag }}
+          name: ${{ inputs.release_name != '' && inputs.release_name || inputs.version_tag }}
+          body: |
+            Windows x64 release built from branch `${{ github.ref_name }}`.
+            Channel: **${{ inputs.channel }}**
+
+            > ⚠️ This installer is **not code-signed**.
+          draft: false
+          prerelease: ${{ inputs.channel == 'dev' }}
+          files: ${{ steps.bundle_app.outputs.installer_path }}
+          token: ${{ secrets.GITHUB_TOKEN }}
