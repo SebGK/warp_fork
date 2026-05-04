@@ -5,6 +5,7 @@
 mod imp;
 mod noop;
 pub mod recording;
+pub mod screen_watcher;
 #[cfg(any(macos, linux, windows))]
 mod screenshot_utils;
 
@@ -260,3 +261,4 @@ impl From<Vector2IDef> for Vector2I {
 pub use recording::{
     AutomationLoop, AutomationLoopResult, RecordedStep, RecordingSession, StepDecision,
 };
+pub use screen_watcher::{ScreenWatchCommand, ScreenWatchEvent, ScreenWatcher, ScreenWatcherConfig};

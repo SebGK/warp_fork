@@ -266,15 +266,20 @@ User types in popup → presses Enter
 
 ## Testing and validation
 
-Unit tests in `crates/computer_use/src/screen_watcher.rs` (`#[cfg(test)]` using the `test-util` noop actor):
+Unit tests in `crates/computer_use/src/screen_watcher.rs` (`#[cfg(test)]` using a local `TrackingActor` that records call counts):
 
-1. `test_screen_watcher_clamps_interval` – intervals below 2 s or above 60 s are clamped (PRODUCT.md invariant 12).
-2. `test_screen_watcher_pause_skips_capture` – pausing prevents `ScreenWatchEvent::Screenshot` from firing (invariant 28).
-3. `test_screen_watcher_resume_restarts_timer` – interval resets to zero after `resume()` (invariant 29).
-4. `test_capture_now_while_paused` – `capture_now()` still works while paused (invariant 28 last sentence).
-5. `test_screen_watcher_stops_when_channel_dropped` – `run()` returns when `tx` is dropped.
+1. `test_screen_watcher_clamps_interval_below_min` – intervals below 2 s are clamped to 2 s (PRODUCT.md invariant 12).
+2. `test_screen_watcher_clamps_interval_above_max` – intervals above 60 s are clamped to 60 s (invariant 12).
+3. `test_screen_watcher_accepts_valid_interval` – a valid interval is stored unchanged.
+4. `test_set_interval_clamps` – `set_interval()` clamps both too-small and too-large values.
+5. `test_pause_resume_state` – `pause()`/`resume()` correctly toggle `is_paused()`.
+6. `test_capture_now_while_paused` – `capture_now()` succeeds even while the watcher is paused (invariant 28 last sentence).
+7. `test_screen_watcher_stops_when_channel_dropped` – `run()` returns when the event channel's receiver is dropped (invariant 30 / graceful shutdown).
+8. `test_screen_watcher_stops_on_stop_command` – `run()` returns when a `Stop` command is received.
+9. `test_screen_watcher_pause_skips_capture` – pausing prevents `ScreenWatchEvent::Screenshot` from being emitted (invariant 28).
+10. `test_screen_watcher_resume_restarts_timer` – the interval resets to zero after `Resume`; a screenshot fires at `now + interval` after resuming (invariant 29).
 
-Unit tests for `StartScreenWatchResult` / `StopScreenWatchResult` in `crates/ai/src/agent/action_result/mod_tests.rs`:
+Unit tests for `StartScreenWatchResult` / `StopScreenWatchResult` in `crates/ai/src/agent/action_result/mod.rs`:
 
 6. `is_successful()` / `is_failed()` / `is_cancelled()` cover all new variants.
 7. `Display` impl roundtrips for both result enums.

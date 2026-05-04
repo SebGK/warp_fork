@@ -101,6 +101,12 @@ pub enum AIAgentActionResultType {
 
     /// The result of replaying a desktop recording on the live desktop.
     ReplayDesktopRecording(ReplayDesktopRecordingResult),
+
+    /// The result of starting a screen-watching session.
+    StartScreenWatch(StartScreenWatchResult),
+
+    /// The result of stopping the active screen-watching session.
+    StopScreenWatch(StopScreenWatchResult),
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -169,6 +175,8 @@ impl Display for AIAgentActionResultType {
             AIAgentActionResultType::AskUserQuestion(result) => result.fmt(f),
             AIAgentActionResultType::RequestDesktopRecording(result) => result.fmt(f),
             AIAgentActionResultType::ReplayDesktopRecording(result) => result.fmt(f),
+            AIAgentActionResultType::StartScreenWatch(result) => result.fmt(f),
+            AIAgentActionResultType::StopScreenWatch(result) => result.fmt(f),
             AIAgentActionResultType::OpenCodeReview | AIAgentActionResultType::InitProject => {
                 Ok(())
             }
@@ -767,6 +775,12 @@ impl AIAgentActionResultType {
             AIAgentActionResultType::ReplayDesktopRecording(_) => {
                 "The result of replaying the desktop recording"
             }
+            AIAgentActionResultType::StartScreenWatch(_) => {
+                "The result of starting the screen-watching session"
+            }
+            AIAgentActionResultType::StopScreenWatch(_) => {
+                "The result of stopping the screen-watching session"
+            }
         }
     }
 
@@ -806,6 +820,8 @@ impl AIAgentActionResultType {
             Self::AskUserQuestion(AskUserQuestionResult::Success { .. }) => true,
             Self::RequestDesktopRecording(RequestDesktopRecordingResult::Success { .. }) => true,
             Self::ReplayDesktopRecording(ReplayDesktopRecordingResult::Completed { .. }) => true,
+            Self::StartScreenWatch(StartScreenWatchResult::Started { .. }) => true,
+            Self::StopScreenWatch(StopScreenWatchResult::Stopped { .. }) => true,
             _ => false,
         }
     }
@@ -839,6 +855,12 @@ impl AIAgentActionResultType {
             | Self::ReplayDesktopRecording(
                 ReplayDesktopRecordingResult::Error { .. }
                 | ReplayDesktopRecordingResult::StoppedEarly { .. },
+            )
+            | Self::StartScreenWatch(
+                StartScreenWatchResult::Unsupported
+                | StartScreenWatchResult::PermissionDenied
+                | StartScreenWatchResult::AlreadyActive
+                | StartScreenWatchResult::Error(_),
             ) => true,
             _ => false,
         }
@@ -884,6 +906,8 @@ impl AIAgentActionResultType {
             | Self::AskUserQuestion(AskUserQuestionResult::Cancelled)
             | Self::RequestDesktopRecording(RequestDesktopRecordingResult::Cancelled)
             | Self::ReplayDesktopRecording(ReplayDesktopRecordingResult::Cancelled) => true,
+            Self::StartScreenWatch(StartScreenWatchResult::Cancelled) => true,
+            Self::StopScreenWatch(StopScreenWatchResult::Cancelled) => true,
             _ => false,
         }
     }
@@ -1453,6 +1477,67 @@ impl Display for ReplayDesktopRecordingResult {
                 f,
                 "Desktop replay error at step {steps_completed}: {message}"
             ),
+        }
+    }
+}
+
+/// Result of starting a continuous screen-watching session.
+#[derive(Debug, Clone, PartialEq)]
+pub enum StartScreenWatchResult {
+    /// The session started successfully.
+    Started {
+        /// Opaque identifier for this watch session, used to route popup chat messages.
+        session_id: String,
+    },
+    /// Screen capture is not supported on the current platform.
+    Unsupported,
+    /// The user denied the screen-capture permission prompt.
+    PermissionDenied,
+    /// Another screen-watch session is already active.
+    AlreadyActive,
+    /// The action was cancelled before the session could start.
+    Cancelled,
+    /// An error prevented the session from starting.
+    Error(String),
+}
+
+impl Display for StartScreenWatchResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Started { session_id } => {
+                write!(f, "Screen-watch session started (id: {session_id})")
+            }
+            Self::Unsupported => write!(f, "Screen watch not supported on this platform"),
+            Self::PermissionDenied => write!(f, "Screen-capture permission denied"),
+            Self::AlreadyActive => write!(f, "A screen-watch session is already active"),
+            Self::Cancelled => write!(f, "Screen-watch start cancelled"),
+            Self::Error(msg) => write!(f, "Screen-watch start error: {msg}"),
+        }
+    }
+}
+
+/// Result of stopping the active screen-watching session.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StopScreenWatchResult {
+    /// The active session was stopped successfully.
+    Stopped {
+        /// Number of chat messages that were exchanged during the session.
+        messages_sent: usize,
+    },
+    /// No screen-watch session was active when the stop was requested.
+    NoActiveSession,
+    /// The action was cancelled.
+    Cancelled,
+}
+
+impl Display for StopScreenWatchResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Stopped { messages_sent } => {
+                write!(f, "Screen-watch session stopped ({messages_sent} message(s) sent)")
+            }
+            Self::NoActiveSession => write!(f, "No active screen-watch session to stop"),
+            Self::Cancelled => write!(f, "Screen-watch stop cancelled"),
         }
     }
 }
